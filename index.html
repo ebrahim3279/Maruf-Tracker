@@ -110,6 +110,32 @@
         }
         .submit-btn:hover { background-color: #2980b9; }
 
+        /* Tables & Buttons */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        th { background-color: #f8f9fa; }
+        .text-red { color: #e74c3c; font-weight: bold; }
+        .text-green { color: #2ecc71; font-weight: bold; }
+        
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .delete-btn:hover { background-color: #c0392b; }
+
         /* Reports */
         .report-buttons {
             display: flex;
@@ -129,36 +155,21 @@
             color: white;
             border-color: #34495e;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            text-align: left;
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-        }
-        th { background-color: #f8f9fa; }
-        .text-red { color: #e74c3c; font-weight: bold; }
-        .text-green { color: #2ecc71; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <!-- Sidebar Navigation -->
     <div class="sidebar">
         <h2>Maruf's Tracker</h2>
         <button class="nav-btn active" onclick="switchTab('dashboard')">Dashboard</button>
         <button class="nav-btn" onclick="switchTab('spend')">Buy / Spend</button>
         <button class="nav-btn" onclick="switchTab('reserved')">Reserved</button>
+        <button class="nav-btn" onclick="switchTab('all-history')">All History</button>
         <button class="nav-btn" onclick="switchTab('reports')">Reports</button>
     </div>
 
-    <!-- Main Content Area -->
     <div class="main-content">
         
-        <!-- DASHBOARD TAB -->
         <div id="dashboard" class="tab-section active">
             <h2>Overview</h2>
             <div class="card-container">
@@ -177,13 +188,12 @@
             </div>
         </div>
 
-        <!-- BUY / SPEND TAB -->
         <div id="spend" class="tab-section">
             <h2>Record an Expense</h2>
             <form id="spend-form">
                 <div class="form-group">
                     <label>For what purpose did you spend?</label>
-                    <input type="text" id="spend-purpose" placeholder="e.g., Groceries, Rickshaw, Internet" required>
+                    <input type="text" id="spend-purpose" placeholder=" Purpose" required>
                 </div>
                 <div class="form-group">
                     <label>How much?</label>
@@ -193,7 +203,6 @@
             </form>
         </div>
 
-        <!-- RESERVED TAB -->
         <div id="reserved" class="tab-section">
             <h2>Add Reserved Funds</h2>
             <form id="reserved-form">
@@ -202,7 +211,7 @@
                     <select id="reserved-source" onchange="checkCustomSource()" required>
                         <option value="Cash">Cash</option>
                         <option value="bKash">bKash</option>
-                        <option value="Other">Other  </option>
+                        <option value="Other">Other   </option>
                     </select>
                 </div>
                 <div class="form-group" id="custom-source-group" style="display: none;">
@@ -217,7 +226,24 @@
             </form>
         </div>
 
-        <!-- REPORTS TAB -->
+        <div id="all-history" class="tab-section">
+            <h2>All Transactions History</h2>
+            <p>View everything you have added and remove mistakes here.</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Details</th>
+                        <th>Amount</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="all-history-body">
+                    </tbody>
+            </table>
+        </div>
+
         <div id="reports" class="tab-section">
             <h2>Reports</h2>
             <div class="report-buttons">
@@ -232,20 +258,19 @@
                     <tr>
                         <th>Date</th>
                         <th>Type</th>
-                        <th>Details (Purpose/Source)</th>
+                        <th>Details</th>
                         <th>Amount</th>
                     </tr>
                 </thead>
                 <tbody id="report-table-body">
-                    <!-- Data fills here -->
-                </tbody>
+                    </tbody>
             </table>
         </div>
 
     </div>
 
     <script>
-        // Database simulation using LocalStorage
+        // Get existing data from browser memory
         let transactions = JSON.parse(localStorage.getItem('marufAppDB')) || [];
 
         // Tab Switching Logic
@@ -256,8 +281,10 @@
             document.getElementById(tabId).classList.add('active');
             event.currentTarget.classList.add('active');
 
+            // Trigger updates based on the tab opened
             if(tabId === 'dashboard') updateDashboard();
             if(tabId === 'reports') generateReport('daily');
+            if(tabId === 'all-history') renderAllHistory();
         }
 
         // Dashboard Calculation
@@ -333,9 +360,47 @@
             updateDashboard();
         }
 
+        // --- NEW: Render All History and Delete Functionality ---
+        function renderAllHistory() {
+            const tbody = document.getElementById('all-history-body');
+            tbody.innerHTML = '';
+
+            if (transactions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No transactions found.</td></tr>';
+                return;
+            }
+
+            // Loop backwards to show newest items at the top
+            for (let i = transactions.length - 1; i >= 0; i--) {
+                const t = transactions[i];
+                const dateStr = new Date(t.date).toLocaleDateString() + ' ' + new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const colorClass = t.type === 'Spent' ? 'text-red' : 'text-green';
+                const sign = t.type === 'Spent' ? '-' : '+';
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${dateStr}</td>
+                        <td><strong>${t.type}</strong></td>
+                        <td>${t.details}</td>
+                        <td class="${colorClass}">${sign}৳${t.amount}</td>
+                        <td><button class="delete-btn" onclick="deleteTransaction(${i})">Delete</button></td>
+                    </tr>
+                `;
+            }
+        }
+
+        function deleteTransaction(index) {
+            // Confirm before deleting
+            if(confirm("Are you sure you want to delete this entry?")) {
+                transactions.splice(index, 1); // Remove from array
+                localStorage.setItem('marufAppDB', JSON.stringify(transactions)); // Update storage
+                updateDashboard(); // Recalculate dashboard balance
+                renderAllHistory(); // Refresh the list
+            }
+        }
+
         // Report Generation Logic
         function generateReport(timeframe) {
-            // Update active button colors
             document.querySelectorAll('.report-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById(`btn-${timeframe}`).classList.add('active');
 
@@ -375,7 +440,6 @@
                 return;
             }
 
-            // Sort newest first
             filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
 
             filtered.forEach(t => {
